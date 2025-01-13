@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>管理画面（実験者用）</h1>
-  
+
   <!-- 通知メッセージ入力欄 -->
   <input type="text" id="notifyInput" placeholder="通知メッセージを入力" />
   <button id="notifyBtn">通知を送る</button>
@@ -17,16 +17,15 @@
     // サーバーに接続
     const socket = io();
 
-    // ボタンが押されたら、入力されたメッセージをサーバーに送る
+    // 「通知を送る」ボタンが押されたら入力されたメッセージをサーバーに送る
     const notifyBtn = document.getElementById('notifyBtn');
     const notifyInput = document.getElementById('notifyInput');
 
     notifyBtn.addEventListener('click', () => {
       const msg = notifyInput.value.trim();
-      // "notifyAll" イベントに { message: "..." } を付与して送信
+      // 空の場合はサーバー側で「今の感情を教えてください。」にフォールバック
       socket.emit('notifyAll', { message: msg });
-      // 入力欄を空にするなど必要に応じて処理
-      notifyInput.value = '';
+      notifyInput.value = ''; // 入力欄リセット
     });
   </script>
 </body>
