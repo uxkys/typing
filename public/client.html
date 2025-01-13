@@ -108,6 +108,7 @@
       background-color: #4caf50;
       color: #fff;
       cursor: pointer;
+      height: 40px; /* unify with downloadBtn */
     }
     #submitBtn:disabled {
       background-color: #bbb;
@@ -153,16 +154,27 @@
       cursor: pointer;
     }
 
-    /* Download button styling (optional) */
-    #downloadBtn {
+    /* Buttons in result area */
+    .action-btn {
       margin-top: 15px;
       padding: 8px 16px;
       font-size: 1em;
       border: none;
       border-radius: 4px;
+      cursor: pointer;
+      height: 40px; /* unify with submitBtn */
+    }
+    #retryBtn {
+      background-color: #9c27b0;
+      color: #fff;
+      margin-right: 10px;
+    }
+    #retryBtn:hover {
+      background-color: #7b1fa2;
+    }
+    #downloadBtn {
       background-color: #2196f3;
       color: #fff;
-      cursor: pointer;
     }
     #downloadBtn:hover {
       background-color: #1976d2;
@@ -198,12 +210,15 @@
     <div id="resultArea">
       <h2>Result</h2>
       <p id="tryCountText">This is Try #: 0</p>
+      <p id="startTimeText">Session start: -</p>
+      <p id="endTimeText">Session end: -</p>
+      <p id="notifTimesText">Notifications: (none)</p>
       <p id="score">Correct: 0</p>
       <p id="miss">Wrong: 0</p>
       <p id="typedCount">Typed words: 0</p>
       <p id="typedChars">Typed chars: 0</p>
-      <button id="retryBtn" onclick="location.reload()">Try again</button>
-      <button id="downloadBtn">Download Result</button>
+      <button id="retryBtn" class="action-btn" onclick="location.reload()">Try again</button>
+      <button id="downloadBtn" class="action-btn">Download Result</button>
     </div>
   </div>
 
@@ -222,8 +237,11 @@
     const notificationPopup = document.getElementById('notificationPopup');
     const notifTextElem = document.getElementById('notifText');
 
-    // Put pick.mp3 under "public/sounds/pick.mp3"
+    // Place pick.mp3 under "public/sounds/pick.mp3"
     let pickSound = new Audio('sounds/pick.mp3');
+
+    // We'll store notification times in an array
+    let notifications = [];
 
     // Close the popup on click
     notificationPopup.addEventListener('click', () => {
@@ -232,6 +250,10 @@
 
     const socket = io();
     socket.on('notify', (data) => {
+      // Record the time of notification
+      const now = new Date();
+      notifications.push(now.toLocaleString()); // e.g. "2023/10/11 10:25:30"
+
       if (data && data.message) {
         notifTextElem.textContent = data.message;
       } else {
@@ -256,6 +278,10 @@
     // Track how many times the user has tried
     let tryCount = 0;
 
+    // We'll store session start/end times
+    let sessionStartTime = null;
+    let sessionEndTime   = null;
+
     // Word list sample
     const wordList = [
       "apple","banana","computer","holiday","energy",
@@ -278,6 +304,9 @@
     const typedElem       = document.getElementById('typedCount');
     const typedCharsElem  = document.getElementById('typedChars');
     const tryCountText    = document.getElementById('tryCountText');
+    const startTimeText   = document.getElementById('startTimeText');
+    const endTimeText     = document.getElementById('endTimeText');
+    const notifTimesText  = document.getElementById('notifTimesText');
     const downloadBtn     = document.getElementById('downloadBtn');
 
     // Time settings elements
@@ -295,17 +324,24 @@
       }
     });
 
-    // Set time
-    setTimeBtn.addEventListener('click', () => {
+    // (4) Enter key in timeInput also triggers Set
+    timeInputElem.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        setTime();
+      }
+    });
+
+    setTimeBtn.addEventListener('click', setTime);
+
+    function setTime() {
       const userSetTime = parseInt(timeInputElem.value, 10);
       if (!isNaN(userSetTime) && userSetTime > 0) {
         sessionTime = userSetTime;
         remainingTime = sessionTime;
-
-        // Close the timeSettings window
-        timeSettings.style.display = 'none';
       }
-    });
+      // Close the timeSettings window
+      timeSettings.style.display = 'none';
+    }
 
     // Shuffle array
     function shuffleArray(array) {
@@ -326,6 +362,8 @@
     function startTask() {
       // Increase the try count
       tryCount++;
+      // Clear notifications array for the new session
+      notifications = [];
 
       currentIndex = 0;
       correctCount = 0;
@@ -337,6 +375,9 @@
 
       // Shuffle word list
       shuffleArray(wordList);
+
+      // session start time
+      sessionStartTime = new Date();
 
       // Enable input
       userInputElem.disabled = false;
@@ -397,16 +438,26 @@
     function endSession() {
       clearInterval(timerId);
       timerId = null;
+      isStarted = false;
+
+      // session end time
+      sessionEndTime = new Date();
 
       // Disable input
       userInputElem.disabled = true;
       submitBtn.disabled = true;
 
       // Display result
-      tryCountText.textContent = `This is Try #: ${tryCount}`;
-      scoreElem.textContent = `Correct: ${correctCount}`;
-      missElem.textContent  = `Wrong: ${missCount}`;
-      typedElem.textContent = `Typed words: ${totalTyped}`;
+      tryCountText.textContent   = `This is Try #: ${tryCount}`;
+      startTimeText.textContent  = `Session start: ${sessionStartTime.toLocaleString()}`;
+      endTimeText.textContent    = `Session end: ${sessionEndTime.toLocaleString()}`;
+      notifTimesText.textContent = `Notifications: ${
+        (notifications.length > 0) ? notifications.join(" | ") : "(none)"
+      }`;
+
+      scoreElem.textContent      = `Correct: ${correctCount}`;
+      missElem.textContent       = `Wrong: ${missCount}`;
+      typedElem.textContent      = `Typed words: ${totalTyped}`;
       typedCharsElem.textContent = `Typed chars: ${totalChars}`;
 
       resultArea.style.display = 'block';
@@ -420,14 +471,29 @@
 
     function downloadResult() {
       // Prepare CSV content
-      // Headers: TryNumber, Correct, Wrong, TypedWords, TypedChars
+      // Headers: TryNumber, StartTime, EndTime, NotificationTimes, Correct, Wrong, TypedWords, TypedChars
       const csvRows = [];
-      csvRows.push(['TryNumber', 'Correct', 'Wrong', 'TypedWords', 'TypedChars']);
+      csvRows.push([
+        'TryNumber',
+        'StartTime',
+        'EndTime',
+        'NotificationTimes',
+        'Correct',
+        'Wrong',
+        'TypedWords',
+        'TypedChars'
+      ]);
 
-      // Current run's data
-      // (In this code, we only store the data of the last session.)
+      // Put notification times as a single string (joined by semicolons or " | ")
+      const notificationStr = (notifications.length > 0)
+        ? notifications.join(" / ")
+        : "";
+
       csvRows.push([
         tryCount,
+        sessionStartTime ? sessionStartTime.toLocaleString() : '',
+        sessionEndTime   ? sessionEndTime.toLocaleString()   : '',
+        notificationStr,
         correctCount,
         missCount,
         totalTyped,
@@ -435,14 +501,26 @@
       ]);
 
       // Convert to CSV format
-      let csvContent = "data:text/csv;charset=utf-8," 
+      let csvContent = "data:text/csv;charset=utf-8,"
         + csvRows.map(row => row.join(",")).join("\n");
 
       // Create a hidden link and trigger download
       const encodedUri = encodeURI(csvContent);
+
+      // Build a filename with date/time + tryCount
+      const date = new Date();
+      const y = date.getFullYear();
+      const m = String(date.getMonth()+1).padStart(2,"0");
+      const d = String(date.getDate()).padStart(2,"0");
+      const hh = String(date.getHours()).padStart(2,"0");
+      const mm = String(date.getMinutes()).padStart(2,"0");
+      const ss = String(date.getSeconds()).padStart(2,"0");
+
+      const fileName = `typing_result_${y}${m}${d}_${hh}${mm}${ss}_try${tryCount}.csv`;
+
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `typing_result_try${tryCount}.csv`);
+      link.setAttribute("download", fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
