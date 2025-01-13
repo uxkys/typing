@@ -6,27 +6,28 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
-// 静的ファイル (publicフォルダ) を配信
+// 静的ファイル (public フォルダ) を配信
 app.use(express.static('public'));
 
-// Socket.IOの接続待ち
 io.on('connection', (socket) => {
   console.log('接続:', socket.id);
 
-  // 実験者画面からの "notifyAll" イベントを受け取ったら
+  // 実験者用画面からの"notifyAll"イベントを受信
   socket.on('notifyAll', (data) => {
-    console.log('notifyAll:', data);
+    // デフォルトメッセージ
+    const DEFAULT_MSG = '今の感情を教えてください。';
 
-    // dataが { message: "ユーザが入力した内容" } で来る想定
-    const msg = data && data.message ? data.message : '通知があります';
+    // data.message が空でなければそのまま使う
+    // 空ならデフォルトにフォールバック
+    const msg = (data && data.message) 
+      ? data.message 
+      : DEFAULT_MSG;
 
-    // 被験者画面に "notify" イベントを配信
-    // ここで、messageキーとして通知内容を載せる
+    // 被験者用画面(client.html) に送信
     io.emit('notify', { message: msg });
   });
 });
 
-// 3000番ポートでサーバー起動
 server.listen(3000, () => {
   console.log('サーバー起動: http://localhost:3000');
 });
