@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>実験者用ページ</title>
+</head>
+<body>
+  <h1>管理画面（実験者用）</h1>
+  <button id="notifyBtn">通知を送る</button>
+
+  <!-- Socket.ioライブラリを読み込む -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // サーバーに接続
+    const socket = io();
+
+    // ボタンが押されたらサーバーに"notifyAll"イベントを送る
+    const notifyBtn = document.getElementById('notifyBtn');
+    notifyBtn.addEventListener('click', () => {
+      socket.emit('notifyAll');
+    });
+  </script>
+</body>
+</html>

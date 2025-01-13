@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>被験者用ページ</title>
+</head>
+<body>
+  <h1>タイピング課題（被験者用）</h1>
+  <p>ここにタイピング課題やUIが表示される想定です。</p>
+
+  <!-- 通知表示領域 -->
+  <div id="notification" style="background: #fffa90; padding: 10px; display: none; margin-top: 10px;">
+    通知メッセージがここに出ます
+  </div>
+
+  <!-- Socket.ioライブラリを読み込む -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // サーバーに接続
+    const socket = io();
+
+    // notifyイベントを受信した時の処理
+    socket.on('notify', (data) => {
+      console.log('通知を受信しました:', data);
+
+      const notif = document.getElementById('notification');
+      notif.textContent = data.message;
+      notif.style.display = 'block';
+
+      // 3秒後に非表示にする
+      setTimeout(() => {
+        notif.style.display = 'none';
+      }, 3000);
+    });
+  </script>
+</body>
+</html>
