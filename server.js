@@ -1,28 +1,32 @@
-// server.js
-const express = require('express');     // Webサーバー用フレームワーク
-const http = require('http');          // httpサーバー
-const socketIO = require('socket.io'); // WebSocketライブラリ
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
 
-const app = express();                 // Expressアプリを作成
-const server = http.createServer(app); // HTTPサーバーを作る
-const io = socketIO(server);           // サーバーにWebSocketを紐付け
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
 
-// publicフォルダを静的ファイル配信する
+// 静的ファイル (publicフォルダ) を配信
 app.use(express.static('public'));
 
-// クライアントが接続してきたときの処理
+// Socket.IOの接続待ち
 io.on('connection', (socket) => {
-  console.log('クライアントが接続しました:', socket.id);
+  console.log('接続:', socket.id);
 
-  // 実験者画面から"notifyAll"イベントが来たら
-  socket.on('notifyAll', () => {
-    // すべてのクライアントに"notify"イベントを送る
-    io.emit('notify', { message: '通知が来ました！' });
+  // 実験者画面からの "notifyAll" イベントを受け取ったら
+  socket.on('notifyAll', (data) => {
+    console.log('notifyAll:', data);
+
+    // dataが { message: "ユーザが入力した内容" } で来る想定
+    const msg = data && data.message ? data.message : '通知があります';
+
+    // 被験者画面に "notify" イベントを配信
+    // ここで、messageキーとして通知内容を載せる
+    io.emit('notify', { message: msg });
   });
 });
 
 // 3000番ポートでサーバー起動
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`サーバーが起動しました: http://localhost:${PORT}`);
+server.listen(3000, () => {
+  console.log('サーバー起動: http://localhost:3000');
 });
