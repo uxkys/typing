@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>英単語タイピング課題（client）</title>
+  <title>typing</title>  <!-- Changed to "typing" -->
+  <!-- Material Icons (for the settings icon) -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    /* ------ 基本リセット ------ */
+    /* ------ Basic Reset ------ */
     * {
       margin: 0;
       padding: 0;
@@ -15,7 +17,7 @@
       line-height: 1.5;
       background: #f8f8f8;
       padding: 20px;
-      position: relative; /* アイコン配置のため */
+      position: relative; /* For positioning the settings icon */
     }
 
     h1 {
@@ -31,6 +33,33 @@
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       position: relative;
+    }
+
+    /* Settings icon in the top-left corner */
+    #settingsIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Time settings window (initially hidden) */
+    #timeSettings {
+      display: none;
+      position: absolute;
+      top: 50px;  /* slightly below the icon */
+      left: 20px;
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    #timeSettings label {
+      margin-right: 5px;
     }
 
     .info {
@@ -100,7 +129,7 @@
       margin: 5px 0;
     }
 
-    /* ===== 通知ポップアップのスタイル: 画面上部に固定 ===== */
+    /* Notification popup at the top-right */
     #notificationPopup {
       position: fixed;
       top: 20px;
@@ -123,46 +152,20 @@
       font-weight: bold;
       cursor: pointer;
     }
-
-    /* ===== 設定アイコン ===== */
-    #settingsIcon {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 1.5em;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    /* ===== 時間設定UI ===== */
-    #timeSettings {
-      display: none;
-      position: absolute;
-      top: 50px; /* settingsIconより少し下に */
-      left: 20px;
-      background-color: #ffffff;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    }
-    #timeSettings label {
-      margin-right: 5px;
-    }
   </style>
 </head>
 <body>
   <div id="app">
-    <h1>typing (client)</h1>
+    <h1>typing</h1>
 
-    <!-- 歯車アイコン (設定アイコン) -->
-    <div id="settingsIcon">⚙️</div>
+    <!-- Material icon for settings -->
+    <span class="material-icons" id="settingsIcon">settings</span>
 
-    <!-- 時間設定UI（初期は非表示）-->
+    <!-- Time settings window (hidden at first) -->
     <div id="timeSettings">
       <label for="timeInput">Time (seconds):</label>
       <input type="number" id="timeInput" min="1" step="1" value="360" />
-      <button id="setTimeBtn">set</button>
+      <button id="setTimeBtn">Set</button>
     </div>
 
     <div class="info">
@@ -173,31 +176,39 @@
       <div id="currentWord"></div>
       <div id="inputArea">
         <input type="text" id="userInput" placeholder="Type here" autocomplete="off" disabled />
-        <button id="submitBtn" disabled>→</button>
+        <button id="submitBtn" disabled>Send</button>
       </div>
     </div>
 
     <div id="resultArea">
-      <h2>結果</h2>
-      <p id="score">正答数: --</p>
+      <h2>Result</h2>
+      <p id="score">Correct: 0</p>
+      <p id="miss">Wrong: 0</p>
+      <p id="typedCount">Typed words: 0</p>
       <button id="retryBtn" onclick="location.reload()">Try again</button>
     </div>
   </div>
 
-  <!-- 通知用のポップアップ要素 -->
+  <!-- Notification popup -->
   <div id="notificationPopup">
     <span class="closeBtn">×</span>
-    <span id="notifText">ここにメッセージ</span>
+    <span id="notifText">Notification</span>
   </div>
 
-  <!-- Socket.IOのクライアントライブラリを読み込み -->
+  <!-- Socket.IO client library -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // ===============================
-    // 通知ポップアップの制御
-    // ===============================
+    // ===========================
+    // Notification Popup + Sound
+    // ===========================
     const notificationPopup = document.getElementById('notificationPopup');
     const notifTextElem = document.getElementById('notifText');
+
+    // Where to put the pick.mp3 file?
+    // -> Place it under "public/sounds/pick.mp3"
+    let pickSound = new Audio('sounds/pick.mp3');
+
+    // Close the popup on click
     notificationPopup.addEventListener('click', () => {
       notificationPopup.style.display = 'none';
     });
@@ -207,67 +218,73 @@
       if (data && data.message) {
         notifTextElem.textContent = data.message;
       } else {
-        notifTextElem.textContent = '今の感情を教えてください。';
+        notifTextElem.textContent = 'Please tell me your current emotion.';
       }
       notificationPopup.style.display = 'block';
+
+      // Play the pick.mp3 sound
+      pickSound.play().catch(err => {
+        console.log('Autoplay blocked or error:', err);
+      });
     });
 
-
-    // ===============================
-    // タイピング課題のロジック
-    // ===============================
-
-    // タイマー管理
+    // ===========================
+    // Typing Task Logic
+    // ===========================
     let sessionTime = 360;
     let remainingTime = sessionTime;
     let timerId = null;
-    let isStarted = false; // 開始フラグ
+    let isStarted = false;
 
-    // 単語リスト
+    // Word list sample
     const wordList = [
       "apple","banana","computer","holiday","energy",
       "school","music","garden","family","birthday"
     ];
 
-    // 変数
     let currentIndex = 0;
     let correctCount = 0;
+    let missCount = 0;
+    let totalTyped = 0; // total number of typed words
 
-    // HTML要素
+    // HTML elements
     const timerElem      = document.getElementById('timer');
     const userInputElem  = document.getElementById('userInput');
     const submitBtn      = document.getElementById('submitBtn');
     const resultArea     = document.getElementById('resultArea');
     const scoreElem      = document.getElementById('score');
-    const retryBtn       = document.getElementById('retryBtn');
+    const missElem       = document.getElementById('miss');
+    const typedElem      = document.getElementById('typedCount');
 
-    // 時間設定UI関連
+    // Time settings elements
     const settingsIcon   = document.getElementById('settingsIcon');
     const timeSettings   = document.getElementById('timeSettings');
     const timeInputElem  = document.getElementById('timeInput');
     const setTimeBtn     = document.getElementById('setTimeBtn');
 
-    // 設定アイコンを押したときにUIをトグル表示
+    // Toggle settings window
     settingsIcon.addEventListener('click', () => {
-      if (timeSettings.style.display === 'none') {
+      if (timeSettings.style.display === 'none' || timeSettings.style.display === '') {
         timeSettings.style.display = 'block';
       } else {
         timeSettings.style.display = 'none';
       }
     });
 
-    // 時間をセット
+    // Set time
     setTimeBtn.addEventListener('click', () => {
       const userSetTime = parseInt(timeInputElem.value, 10);
       if (!isNaN(userSetTime) && userSetTime > 0) {
         sessionTime = userSetTime;
         remainingTime = sessionTime;
-        // Press SPACE key to start. は消さない
-        // → timerElem.textContent は上書きしない
+        // Do not overwrite "Press SPACE key to start."
+
+        // Close the timeSettings window
+        timeSettings.style.display = 'none';
       }
     });
 
-    // 配列シャッフル関数
+    // Shuffle array
     function shuffleArray(array) {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -275,7 +292,7 @@
       }
     }
 
-    // スペースキーでタスク開始
+    // Space key to start
     window.addEventListener('keydown', (e) => {
       if (!isStarted && e.code === 'Space') {
         isStarted = true;
@@ -284,25 +301,25 @@
     });
 
     function startTask() {
-      // 初期化
       currentIndex = 0;
       correctCount = 0;
+      missCount = 0;
+      totalTyped = 0;
       userInputElem.value = '';
 
-      // リストシャッフル
+      // Shuffle word list
       shuffleArray(wordList);
 
-      // 入力有効化
+      // Enable input
       userInputElem.disabled = false;
       userInputElem.focus();
 
-      // 最初の単語表示
+      // Show first word
       showCurrentWord();
 
-      // タイマー開始
+      // Start countdown
       timerId = setInterval(() => {
         remainingTime--;
-        // 開始後は秒数を表示
         timerElem.textContent = `${remainingTime}s`;
         if (remainingTime <= 0) {
           endSession();
@@ -314,21 +331,18 @@
       if (currentIndex >= wordList.length) {
         currentIndex = 0;
       }
+      const currentWord = wordList[currentIndex];
       const currentWordElem = document.getElementById('currentWord');
-      currentWordElem.textContent = wordList[currentIndex];
+      currentWordElem.textContent = currentWord;
+
       userInputElem.value = '';
       userInputElem.focus();
-      submitBtn.disabled = true; // 単語が入力されるまで送信ボタンを無効化
+      // This time we always allow to send (even if wrong),
+      // so do NOT disable the button based on mismatch
+      submitBtn.disabled = false;
     }
 
-    // 入力監視 (完全一致でボタン活性化)
-    userInputElem.addEventListener('input', () => {
-      const typed = userInputElem.value.trim();
-      const target = wordList[currentIndex];
-      submitBtn.disabled = (typed !== target);
-    });
-
-    // ボタンクリックor Enterで回答チェック
+    // Send button or Enter
     submitBtn.addEventListener('click', checkAnswer);
     userInputElem.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !submitBtn.disabled) {
@@ -340,8 +354,12 @@
     function checkAnswer() {
       const userAnswer = userInputElem.value.trim();
       const correctWord = wordList[currentIndex];
+      totalTyped++;
+
       if (userAnswer === correctWord) {
         correctCount++;
+      } else {
+        missCount++;
       }
       currentIndex++;
       showCurrentWord();
@@ -350,9 +368,16 @@
     function endSession() {
       clearInterval(timerId);
       timerId = null;
+
+      // Disable input
       userInputElem.disabled = true;
       submitBtn.disabled = true;
-      scoreElem.textContent = `正答数: ${correctCount}`;
+
+      // Show result
+      scoreElem.textContent = `Correct: ${correctCount}`;
+      missElem.textContent = `Wrong: ${missCount}`;
+      typedElem.textContent = `Typed words: ${totalTyped}`;
+
       resultArea.style.display = 'block';
       document.getElementById('currentWord').textContent = 'end';
     }
