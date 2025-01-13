@@ -6,18 +6,27 @@
 </head>
 <body>
   <h1>管理画面（実験者用）</h1>
+  
+  <!-- 通知メッセージ入力欄 -->
+  <input type="text" id="notifyInput" placeholder="通知メッセージを入力" />
   <button id="notifyBtn">通知を送る</button>
 
-  <!-- Socket.ioライブラリを読み込む -->
+  <!-- Socket.ioライブラリを読み込み -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
     // サーバーに接続
     const socket = io();
 
-    // ボタンが押されたらサーバーに"notifyAll"イベントを送る
+    // ボタンが押されたら、入力されたメッセージをサーバーに送る
     const notifyBtn = document.getElementById('notifyBtn');
+    const notifyInput = document.getElementById('notifyInput');
+
     notifyBtn.addEventListener('click', () => {
-      socket.emit('notifyAll');
+      const msg = notifyInput.value.trim();
+      // "notifyAll" イベントに { message: "..." } を付与して送信
+      socket.emit('notifyAll', { message: msg });
+      // 入力欄を空にするなど必要に応じて処理
+      notifyInput.value = '';
     });
   </script>
 </body>
