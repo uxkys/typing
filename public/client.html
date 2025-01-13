@@ -15,6 +15,7 @@
       line-height: 1.5;
       background: #f8f8f8;
       padding: 20px;
+      position: relative; /* アイコン配置のため */
     }
 
     h1 {
@@ -29,15 +30,12 @@
       background: #fff;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
     }
 
     .info {
       text-align: center;
       margin-bottom: 20px;
-    }
-
-    .info p {
-      margin: 5px 0;
     }
 
     #timer {
@@ -102,13 +100,12 @@
       margin: 5px 0;
     }
 
-    /* ===== 通知ポップアップのスタイル ===== */
+    /* ===== 通知ポップアップのスタイル: 画面上部に固定 ===== */
     #notificationPopup {
-      /* 画面上部に固定 */
       position: fixed;
       top: 20px;
       right: 20px;
-      display: none; /* 初期は非表示 */
+      display: none;
       background-color: #fffa9e;
       border: 2px solid #ccc;
       border-radius: 8px;
@@ -120,13 +117,37 @@
     #notificationPopup:hover {
       background-color: #fff18a;
     }
-
-    /* ×ボタン */
     .closeBtn {
       float: right;
       margin-left: 10px;
       font-weight: bold;
       cursor: pointer;
+    }
+
+    /* ===== 設定アイコン ===== */
+    #settingsIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 1.5em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* ===== 時間設定UI ===== */
+    #timeSettings {
+      display: none;
+      position: absolute;
+      top: 50px; /* settingsIconより少し下に */
+      left: 20px;
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    #timeSettings label {
+      margin-right: 5px;
     }
   </style>
 </head>
@@ -134,11 +155,17 @@
   <div id="app">
     <h1>typing (client)</h1>
 
-    <!-- 時間制限入力欄と設定ボタン -->
-    <div class="info">
+    <!-- 歯車アイコン (設定アイコン) -->
+    <div id="settingsIcon">⚙️</div>
+
+    <!-- 時間設定UI（初期は非表示）-->
+    <div id="timeSettings">
       <label for="timeInput">Time (seconds):</label>
       <input type="number" id="timeInput" min="1" step="1" value="360" />
       <button id="setTimeBtn">set</button>
+    </div>
+
+    <div class="info">
       <p id="timer">Press SPACE key to start.</p>
     </div>
 
@@ -167,20 +194,15 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     // ===============================
-    // 通知ポップアップ関連
+    // 通知ポップアップの制御
     // ===============================
     const notificationPopup = document.getElementById('notificationPopup');
     const notifTextElem = document.getElementById('notifText');
-
-    // ポップアップ自体 or ×ボタンをクリックすると通知を消す
     notificationPopup.addEventListener('click', () => {
       notificationPopup.style.display = 'none';
     });
 
-    // Socket接続 (同一サーバー上の Socket.IO を想定)
     const socket = io();
-
-    // サーバー側から "notify" イベントを受信したらポップアップを表示
     socket.on('notify', (data) => {
       if (data && data.message) {
         notifTextElem.textContent = data.message;
@@ -192,31 +214,56 @@
 
 
     // ===============================
-    // タイピング課題の既存ロジック
+    // タイピング課題のロジック
     // ===============================
-    let sessionTime = 360;     // 初期値: 360秒
+
+    // タイマー管理
+    let sessionTime = 360;
     let remainingTime = sessionTime;
     let timerId = null;
-    let isStarted = false;     // タスク開始フラグ
+    let isStarted = false; // 開始フラグ
 
-    // HTML要素の取得
-    const timerElem = document.getElementById('timer');
-    const userInputElem = document.getElementById('userInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const resultArea = document.getElementById('resultArea');
-    const scoreElem = document.getElementById('score');
-    const timeInputElem = document.getElementById('timeInput');
-    const setTimeBtn = document.getElementById('setTimeBtn');
+    // 単語リスト
+    const wordList = [
+      "apple","banana","computer","holiday","energy",
+      "school","music","garden","family","birthday"
+    ];
 
-    // 単語リスト（省略可、ここにリストを置く）
+    // 変数
+    let currentIndex = 0;
+    let correctCount = 0;
 
-    // 時間制限を画面で設定
+    // HTML要素
+    const timerElem      = document.getElementById('timer');
+    const userInputElem  = document.getElementById('userInput');
+    const submitBtn      = document.getElementById('submitBtn');
+    const resultArea     = document.getElementById('resultArea');
+    const scoreElem      = document.getElementById('score');
+    const retryBtn       = document.getElementById('retryBtn');
+
+    // 時間設定UI関連
+    const settingsIcon   = document.getElementById('settingsIcon');
+    const timeSettings   = document.getElementById('timeSettings');
+    const timeInputElem  = document.getElementById('timeInput');
+    const setTimeBtn     = document.getElementById('setTimeBtn');
+
+    // 設定アイコンを押したときにUIをトグル表示
+    settingsIcon.addEventListener('click', () => {
+      if (timeSettings.style.display === 'none') {
+        timeSettings.style.display = 'block';
+      } else {
+        timeSettings.style.display = 'none';
+      }
+    });
+
+    // 時間をセット
     setTimeBtn.addEventListener('click', () => {
       const userSetTime = parseInt(timeInputElem.value, 10);
       if (!isNaN(userSetTime) && userSetTime > 0) {
         sessionTime = userSetTime;
         remainingTime = sessionTime;
-        updateTimer();
+        // Press SPACE key to start. は消さない
+        // → timerElem.textContent は上書きしない
       }
     });
 
@@ -228,7 +275,7 @@
       }
     }
 
-    // キーイベントでタスク開始 (スペースキー)
+    // スペースキーでタスク開始
     window.addEventListener('keydown', (e) => {
       if (!isStarted && e.code === 'Space') {
         isStarted = true;
@@ -236,39 +283,78 @@
       }
     });
 
-    // タスク開始
     function startTask() {
-      // ここで単語リストをシャッフル＆初期化など
+      // 初期化
+      currentIndex = 0;
+      correctCount = 0;
+      userInputElem.value = '';
+
+      // リストシャッフル
+      shuffleArray(wordList);
+
+      // 入力有効化
       userInputElem.disabled = false;
       userInputElem.focus();
+
+      // 最初の単語表示
+      showCurrentWord();
 
       // タイマー開始
       timerId = setInterval(() => {
         remainingTime--;
-        updateTimer();
+        // 開始後は秒数を表示
+        timerElem.textContent = `${remainingTime}s`;
         if (remainingTime <= 0) {
           endSession();
         }
       }, 1000);
     }
 
-    // タイマー表示を更新
-    function updateTimer() {
-      timerElem.textContent = `${remainingTime}s`;
+    function showCurrentWord() {
+      if (currentIndex >= wordList.length) {
+        currentIndex = 0;
+      }
+      const currentWordElem = document.getElementById('currentWord');
+      currentWordElem.textContent = wordList[currentIndex];
+      userInputElem.value = '';
+      userInputElem.focus();
+      submitBtn.disabled = true; // 単語が入力されるまで送信ボタンを無効化
     }
 
-    // 以下、入力監視や回答チェックなどは省略（既存実装のまま）
-    // ...
-    // endSession(), showCurrentWord()など
+    // 入力監視 (完全一致でボタン活性化)
+    userInputElem.addEventListener('input', () => {
+      const typed = userInputElem.value.trim();
+      const target = wordList[currentIndex];
+      submitBtn.disabled = (typed !== target);
+    });
+
+    // ボタンクリックor Enterで回答チェック
+    submitBtn.addEventListener('click', checkAnswer);
+    userInputElem.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !submitBtn.disabled) {
+        e.preventDefault();
+        checkAnswer();
+      }
+    });
+
+    function checkAnswer() {
+      const userAnswer = userInputElem.value.trim();
+      const correctWord = wordList[currentIndex];
+      if (userAnswer === correctWord) {
+        correctCount++;
+      }
+      currentIndex++;
+      showCurrentWord();
+    }
 
     function endSession() {
       clearInterval(timerId);
       timerId = null;
       userInputElem.disabled = true;
       submitBtn.disabled = true;
-      scoreElem.textContent = `正答数: -- (サンプル)`;
+      scoreElem.textContent = `正答数: ${correctCount}`;
       resultArea.style.display = 'block';
-      timerElem.textContent = 'time';
+      document.getElementById('currentWord').textContent = 'end';
     }
   </script>
 </body>
