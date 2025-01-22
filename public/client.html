@@ -122,15 +122,20 @@
   <div id="app">
     <h1>typing</h1>
 
+    <!-- 設定アイコン -->
     <span class="material-icons" id="settingsIcon">settings</span>
+
+    <!-- 時間設定パネル -->
     <div id="timeSettings">
       <label for="timeInput">Time (seconds):</label>
       <input type="number" id="timeInput" min="1" step="1" value="360" />
       <button id="setTimeBtn">Set</button>
     </div>
 
+    <!-- タイマー表示 -->
     <p id="timer">Press SPACE key to start.</p>
 
+    <!-- 単語エリア -->
     <div id="wordArea">
       <div id="currentWord"></div>
       <div id="inputArea">
@@ -139,6 +144,7 @@
       </div>
     </div>
 
+    <!-- 結果表示 -->
     <div id="resultArea">
       <h2>Result</h2>
       <p id="sessionCountText"></p>
@@ -154,6 +160,7 @@
     </div>
   </div>
 
+  <!-- 通知ポップアップ -->
   <div id="notificationPopup">
     <span id="notifText">Notification</span>
   </div>
@@ -161,34 +168,52 @@
   <!-- Socket.IO -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    /****************************************
-     * 通知ポップアップ & 音声再生
-     ****************************************/
+    /**************************************************
+     * 通知ポップアップ & 音声再生 + 通知時刻の記録
+     **************************************************/
     const notificationPopup = document.getElementById('notificationPopup');
     const notifTextElem     = document.getElementById('notifText');
     const pickSound         = new Audio('sounds/pick.mp3');
     let popupTimer          = null;
 
+    // セッション中に受けた通知の時刻を保持する配列
+    // endSession() 時に結果画面へ反映する
+    let notifications = [];
+
+    // Socket接続
     const socket = io();
+
+    // サーバーから "notify" イベントで通知を受け取る
     socket.on('notify', (data) => {
+      // 通知メッセージをポップアップに表示
       notifTextElem.textContent = data && data.message ? data.message : 'Notification';
       notificationPopup.style.display = 'block';
-      pickSound.play().catch(err => console.warn('Audio blocked:', err));
 
+      // 音声再生（ブラウザの自動再生制限に注意）
+      pickSound.play().catch(err => {
+        console.warn('Audio playback was blocked by the browser:', err);
+      });
+
+      // 通知が来たタイミングを配列に格納
+      // 「new Date()」などで時刻を取得
+      notifications.push(new Date().toLocaleTimeString());
+
+      // 既存タイマーがあればクリアし、5秒後に通知を非表示
       if (popupTimer) clearTimeout(popupTimer);
       popupTimer = setTimeout(() => {
         notificationPopup.style.display = 'none';
       }, 5000);
     });
 
+    // 通知クリックで消去
     notificationPopup.addEventListener('click', () => {
       notificationPopup.style.display = 'none';
       if (popupTimer) clearTimeout(popupTimer);
     });
 
-    /****************************************
-     * 単語リスト読み込み & ランダム出題
-     ****************************************/
+    /***********************************************
+     * 単語リスト読み込み + ランダム出題
+     ***********************************************/
     let wordList = [];
     function loadExternalWords(callback) {
       fetch('/words.txt')
@@ -210,15 +235,14 @@
       }
     }
 
-    /****************************************
-     * セッション情報 & CSV出力
-     ****************************************/
+    /***********************************************
+     * セッション管理 & CSV出力
+     ***********************************************/
     let sessionCount  = 0;
     let allSessions   = [];
 
     let sessionStartTime = null;
     let sessionEndTime   = null;
-    let notifications    = [];
     let correctCount = 0;
     let missCount    = 0;
     let totalTyped   = 0;
@@ -229,6 +253,7 @@
     let timerId       = null;
     let isStarted     = false;
 
+    // DOM要素参照
     const timerElem        = document.getElementById('timer');
     const userInputElem    = document.getElementById('userInput');
     const submitBtn        = document.getElementById('submitBtn');
@@ -245,18 +270,18 @@
     const tryAgainBtn      = document.getElementById('tryAgainBtn');
     const downloadAllBtn   = document.getElementById('downloadAllBtn');
 
-    // 時間設定関連
-    const settingsIcon  = document.getElementById('settingsIcon');
-    const timeSettings  = document.getElementById('timeSettings');
-    const timeInputElem = document.getElementById('timeInput');
-    const setTimeBtn    = document.getElementById('setTimeBtn');
+    const settingsIcon     = document.getElementById('settingsIcon');
+    const timeSettings     = document.getElementById('timeSettings');
+    const timeInputElem    = document.getElementById('timeInput');
+    const setTimeBtn       = document.getElementById('setTimeBtn');
 
-    // 設定アイコンでパネル切り替え
+    // 歯車アイコンで時間設定パネルを開閉
     settingsIcon.addEventListener('click', () => {
-      timeSettings.style.display = (timeSettings.style.display === 'block') ? 'none' : 'block';
+      const st = timeSettings.style;
+      st.display = (st.display === 'block') ? 'none' : 'block';
     });
 
-    // Time設定
+    // 時間設定ボタン
     setTimeBtn.addEventListener('click', setTime);
     timeInputElem.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') setTime();
@@ -275,26 +300,29 @@
     window.addEventListener('keydown', (e) => {
       if (!isStarted && e.code === 'Space') {
         isStarted = true;
-        loadExternalWords(() => startTask());
+        loadExternalWords(() => {
+          startTask();
+        });
       }
     });
 
     function startTask() {
-      // セッション開始処理
       sessionCount++;
       sessionStartTime = new Date();
-      notifications    = [];
+      sessionEndTime   = null;
       correctCount     = 0;
       missCount        = 0;
       totalTyped       = 0;
       totalChars       = 0;
+      // 通知の履歴をリセット
+      notifications    = [];
 
-      // セッション開始時にリストをシャッフル
+      // セッション開始時に単語リストをシャッフル
       shuffleArray(wordList);
 
       userInputElem.value = '';
       userInputElem.disabled = false;
-      submitBtn.disabled = false;
+      submitBtn.disabled  = false;
       userInputElem.focus();
 
       remainingTime = sessionTime;
@@ -338,14 +366,16 @@
       isStarted = false;
       sessionEndTime = new Date();
 
+      // 入力無効化
       userInputElem.disabled = true;
       submitBtn.disabled     = true;
 
+      // 結果をまとめて allSessions にプッシュ
       const sessionResult = {
         sessionNum: sessionCount,
         startTime: sessionStartTime,
         endTime: sessionEndTime,
-        notifications: [...notifications],
+        notifications: [...notifications], // 通知時刻をコピー
         correct: correctCount,
         wrong: missCount,
         typedWords: totalTyped,
@@ -353,23 +383,27 @@
       };
       allSessions.push(sessionResult);
 
+      // 結果表示
       sessionCountText.textContent = `Session #: ${sessionCount}`;
       startTimeText.textContent    = `Start: ${sessionStartTime.toLocaleString()}`;
       endTimeText.textContent      = `End: ${sessionEndTime.toLocaleString()}`;
-      notifTimesText.textContent   = (notifications.length > 0)
-        ? "Notifications: " + notifications.join(" | ")
-        : "Notifications: (none)";
-      scoreElem.textContent        = `Correct: ${correctCount}`;
-      missElem.textContent         = `Wrong: ${missCount}`;
-      typedElem.textContent        = `Typed words: ${totalTyped}`;
-      typedCharsElem.textContent   = `Typed chars: ${totalChars}`;
+
+      if (notifications.length > 0) {
+        notifTimesText.textContent = "Notifications: " + notifications.join(" | ");
+      } else {
+        notifTimesText.textContent = "Notifications: (none)";
+      }
+
+      scoreElem.textContent      = `Correct: ${correctCount}`;
+      missElem.textContent       = `Wrong: ${missCount}`;
+      typedElem.textContent      = `Typed words: ${totalTyped}`;
+      typedCharsElem.textContent = `Typed chars: ${totalChars}`;
 
       resultArea.style.display = 'block';
     }
 
-    submitBtn.addEventListener('click', () => {
-      checkAnswer();
-    });
+    // 回答ボタン
+    submitBtn.addEventListener('click', checkAnswer);
     userInputElem.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !submitBtn.disabled) {
         e.preventDefault();
@@ -377,12 +411,13 @@
       }
     });
 
+    // Try again: 結果を消して、再度スタート待ち
     tryAgainBtn.addEventListener('click', () => {
       resultArea.style.display = 'none';
       timerElem.textContent = 'Press SPACE key to start.';
     });
 
-    // 全セッションの結果をCSVダウンロード
+    // 全セッションの結果をCSV形式で出力
     downloadAllBtn.addEventListener('click', () => {
       const header = [
         'SessionNum','StartTime','EndTime','Notifications',
@@ -391,13 +426,15 @@
       const rows = [header];
 
       allSessions.forEach(s => {
+        // 通知時刻の配列を文字列化
         const notifStr = (s.notifications.length > 0)
-          ? s.notifications.map(t => t.toLocaleString ? t.toLocaleString() : t).join(" / ")
+          ? s.notifications.join(" / ")
           : '';
+
         rows.push([
           s.sessionNum,
           s.startTime?.toLocaleString() || '',
-          s.endTime?.toLocaleString() || '',
+          s.endTime?.toLocaleString()   || '',
           notifStr,
           s.correct,
           s.wrong,
@@ -406,14 +443,14 @@
         ]);
       });
 
-      // BOMを付けてExcelの文字化け対策
+      // BOM (Byte Order Mark) を付与してExcelの文字化け対策
       const BOM = '\uFEFF';
       let csvContent = "data:text/csv;charset=utf-8," + BOM;
       csvContent += rows.map(r => r.join(",")).join("\n");
 
       const now = new Date();
       const y   = now.getFullYear();
-      const m   = String(now.getMonth()+1).padStart(2, "0");
+      const m   = String(now.getMonth() + 1).padStart(2, "0");
       const d   = String(now.getDate()).padStart(2, "0");
       const hh  = String(now.getHours()).padStart(2, "0");
       const mm  = String(now.getMinutes()).padStart(2, "0");
@@ -426,9 +463,6 @@
       link.click();
       document.body.removeChild(link);
     });
-
-    // 通知時間を保存する例（サーバーで通知時刻を送る実装時）
-    // socket.on('notifyTime', ts => notifications.push(ts));
   </script>
 </body>
 </html>
