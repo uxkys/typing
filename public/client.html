@@ -150,7 +150,8 @@
       <p id="sessionCountText"></p>
       <p id="startTimeText"></p>
       <p id="endTimeText"></p>
-      <p id="notifTimesText"></p>
+      <!-- 通知時間を列挙 -->
+      <div id="notifTimesText"></div>
       <p id="score"></p>
       <p id="miss"></p>
       <p id="typedCount"></p>
@@ -176,44 +177,41 @@
     const pickSound         = new Audio('sounds/pick.mp3');
     let popupTimer          = null;
 
-    // セッション中に受けた通知の時刻を保持する配列
-    // endSession() 時に結果画面へ反映する
+    // セッション中に受けた通知の時刻(最大5つ)を保持
     let notifications = [];
 
     // Socket接続
     const socket = io();
 
-    // サーバーから "notify" イベントで通知を受け取る
+    // サーバーから通知を受け取り => ポップアップ, 音声再生, 通知時刻を記録
     socket.on('notify', (data) => {
-      // 通知メッセージをポップアップに表示
       notifTextElem.textContent = data && data.message ? data.message : 'Notification';
       notificationPopup.style.display = 'block';
 
-      // 音声再生（ブラウザの自動再生制限に注意）
       pickSound.play().catch(err => {
         console.warn('Audio playback was blocked by the browser:', err);
       });
 
-      // 通知が来たタイミングを配列に格納
-      // 「new Date()」などで時刻を取得
-      notifications.push(new Date().toLocaleTimeString());
+      // 通知が来た時刻を配列にpush。最大5件までに制限。
+      if (notifications.length < 5) {
+        notifications.push(new Date().toLocaleTimeString());
+      }
 
-      // 既存タイマーがあればクリアし、5秒後に通知を非表示
       if (popupTimer) clearTimeout(popupTimer);
       popupTimer = setTimeout(() => {
         notificationPopup.style.display = 'none';
       }, 5000);
     });
 
-    // 通知クリックで消去
+    // 通知クリックで非表示
     notificationPopup.addEventListener('click', () => {
       notificationPopup.style.display = 'none';
       if (popupTimer) clearTimeout(popupTimer);
     });
 
-    /***********************************************
+    /**************************************************
      * 単語リスト読み込み + ランダム出題
-     ***********************************************/
+     **************************************************/
     let wordList = [];
     function loadExternalWords(callback) {
       fetch('/words.txt')
@@ -235,9 +233,9 @@
       }
     }
 
-    /***********************************************
+    /**************************************************
      * セッション管理 & CSV出力
-     ***********************************************/
+     **************************************************/
     let sessionCount  = 0;
     let allSessions   = [];
 
@@ -253,7 +251,7 @@
     let timerId       = null;
     let isStarted     = false;
 
-    // DOM要素参照
+    // DOM要素
     const timerElem        = document.getElementById('timer');
     const userInputElem    = document.getElementById('userInput');
     const submitBtn        = document.getElementById('submitBtn');
@@ -275,13 +273,13 @@
     const timeInputElem    = document.getElementById('timeInput');
     const setTimeBtn       = document.getElementById('setTimeBtn');
 
-    // 歯車アイコンで時間設定パネルを開閉
+    // 歯車アイコンで時間設定パネル開閉
     settingsIcon.addEventListener('click', () => {
       const st = timeSettings.style;
       st.display = (st.display === 'block') ? 'none' : 'block';
     });
 
-    // 時間設定ボタン
+    // 時間設定
     setTimeBtn.addEventListener('click', setTime);
     timeInputElem.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') setTime();
@@ -314,10 +312,10 @@
       missCount        = 0;
       totalTyped       = 0;
       totalChars       = 0;
-      // 通知の履歴をリセット
+      // 通知配列を初期化（セッションごとにリセット）
       notifications    = [];
 
-      // セッション開始時に単語リストをシャッフル
+      // 単語リストをシャッフル
       shuffleArray(wordList);
 
       userInputElem.value = '';
@@ -366,16 +364,17 @@
       isStarted = false;
       sessionEndTime = new Date();
 
-      // 入力無効化
+      // 入力を無効化
       userInputElem.disabled = true;
       submitBtn.disabled     = true;
 
-      // 結果をまとめて allSessions にプッシュ
+      // セッション結果をまとめる
       const sessionResult = {
         sessionNum: sessionCount,
         startTime: sessionStartTime,
         endTime: sessionEndTime,
-        notifications: [...notifications], // 通知時刻をコピー
+        // notifications: 最大5個まで格納
+        notifications: [...notifications],
         correct: correctCount,
         wrong: missCount,
         typedWords: totalTyped,
@@ -388,11 +387,13 @@
       startTimeText.textContent    = `Start: ${sessionStartTime.toLocaleString()}`;
       endTimeText.textContent      = `End: ${sessionEndTime.toLocaleString()}`;
 
-      if (notifications.length > 0) {
-        notifTimesText.textContent = "Notifications: " + notifications.join(" | ");
-      } else {
-        notifTimesText.textContent = "Notifications: (none)";
-      }
+      // 通知を列挙
+      let ntText = '';
+      notifications.forEach((notif, i) => {
+        ntText += `Notifications ${i+1}: ${notif}<br/>`;
+      });
+      if (!ntText) ntText = 'No notifications';
+      notifTimesText.innerHTML = ntText;
 
       scoreElem.textContent      = `Correct: ${correctCount}`;
       missElem.textContent       = `Wrong: ${missCount}`;
@@ -402,7 +403,7 @@
       resultArea.style.display = 'block';
     }
 
-    // 回答ボタン
+    // 送信ボタン
     submitBtn.addEventListener('click', checkAnswer);
     userInputElem.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !submitBtn.disabled) {
@@ -411,39 +412,50 @@
       }
     });
 
-    // Try again: 結果を消して、再度スタート待ち
+    // Try Again
     tryAgainBtn.addEventListener('click', () => {
       resultArea.style.display = 'none';
       timerElem.textContent = 'Press SPACE key to start.';
     });
 
-    // 全セッションの結果をCSV形式で出力
+    // Download All Results
     downloadAllBtn.addEventListener('click', () => {
+      // CSVヘッダー
       const header = [
-        'SessionNum','StartTime','EndTime','Notifications',
+        'SessionNum','StartTime','EndTime',
+        'Notifications 1','Notifications 2','Notifications 3','Notifications 4','Notifications 5',
         'Correct','Wrong','TypedWords','TypedChars'
       ];
       const rows = [header];
 
+      // セッションごとの行
       allSessions.forEach(s => {
-        // 通知時刻の配列を文字列化
-        const notifStr = (s.notifications.length > 0)
-          ? s.notifications.join(" / ")
-          : '';
+        // s.notificationsから最大5件取り出す
+        const notifArr = s.notifications.slice(0, 5); 
+        // 5件未満の場合は空文字で埋める
+        while (notifArr.length < 5) {
+          notifArr.push('');
+        }
 
-        rows.push([
+        // 1行分の配列
+        const row = [
           s.sessionNum,
-          s.startTime?.toLocaleString() || '',
-          s.endTime?.toLocaleString()   || '',
-          notifStr,
+          s.startTime ? s.startTime.toLocaleString() : '',
+          s.endTime   ? s.endTime.toLocaleString()   : '',
+          notifArr[0],  // Notifications 1
+          notifArr[1],  // Notifications 2
+          notifArr[2],  // Notifications 3
+          notifArr[3],  // Notifications 4
+          notifArr[4],  // Notifications 5
           s.correct,
           s.wrong,
           s.typedWords,
           s.typedChars
-        ]);
+        ];
+        rows.push(row);
       });
 
-      // BOM (Byte Order Mark) を付与してExcelの文字化け対策
+      // BOM付与でExcel文字化け対策
       const BOM = '\uFEFF';
       let csvContent = "data:text/csv;charset=utf-8," + BOM;
       csvContent += rows.map(r => r.join(",")).join("\n");
