@@ -6,7 +6,157 @@
   <!-- Material Icons (設定アイコン用) -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
-    /* (省略: CSSはそのまま) */
+    /* ------ 基本リセット ------ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      background: #f8f8f8;
+      padding: 20px;
+      position: relative;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    #app {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    /* 左上にある歯車アイコン（設定アイコン） */
+    #settingsIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+    /* 時間設定ウィンドウ（初期は非表示） */
+    #timeSettings {
+      display: none;
+      position: absolute;
+      top: 50px;
+      left: 20px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    #timeSettings label {
+      margin-right: 5px;
+    }
+    .info {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #timer {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #333;
+    }
+    #wordArea {
+      text-align: center;
+      margin: 40px 0;
+    }
+    #currentWord {
+      font-size: 2em;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+    #inputArea {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    #userInput {
+      padding: 8px;
+      font-size: 1em;
+      width: 50%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #submitBtn {
+      padding: 8px 16px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      background-color: #4caf50;
+      color: #fff;
+      cursor: pointer;
+      height: 40px;
+    }
+    #submitBtn:disabled {
+      background-color: #bbb;
+      cursor: not-allowed;
+    }
+    #submitBtn:hover:enabled {
+      background-color: #45a049;
+    }
+    #resultArea {
+      display: none;
+      text-align: center;
+      margin-top: 30px;
+    }
+    #resultArea h2 {
+      margin-bottom: 10px;
+    }
+    #resultArea p {
+      margin: 5px 0;
+    }
+    /* 通知ポップアップ（右上） */
+    #notificationPopup {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: none;
+      background-color: #fffa9e;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      padding: 10px 15px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      max-width: 300px;
+    }
+    #notificationPopup:hover {
+      background-color: #fff18a;
+    }
+    /* 結果画面のボタン */
+    .actionBtn {
+      margin-top: 15px;
+      padding: 8px 16px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      height: 40px;
+    }
+    #tryAgainBtn {
+      background-color: #9c27b0;
+      color: #fff;
+      margin-right: 10px;
+    }
+    #tryAgainBtn:hover {
+      background-color: #7b1fa2;
+    }
+    #downloadAllBtn {
+      background-color: #2196f3;
+      color: #fff;
+    }
+    #downloadAllBtn:hover {
+      background-color: #1976d2;
+    }
   </style>
 </head>
 <body>
