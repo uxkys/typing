@@ -3,24 +3,201 @@
 <head>
   <meta charset="UTF-8" />
   <title>typing</title>
+  <!-- Material Icons (設定アイコン用) -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
   <style>
-    /* 省略：基本のスタイルは従来と同じ */
+    /* ------ 基本リセット ------ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      background: #f8f8f8;
+      padding: 20px;
+      position: relative;
+    }
 
-    /* 通知ポップアップを数秒で消すために追加も可能だが、今回はJS側で制御 */
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    #app {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    /* 左上にある歯車アイコン（設定アイコン） */
+    #settingsIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* 時間設定ウィンドウ（初期は非表示） */
+    #timeSettings {
+      display: none;
+      position: absolute;
+      top: 50px;
+      left: 20px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    #timeSettings label {
+      margin-right: 5px;
+    }
+
+    .info {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #timer {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    #wordArea {
+      text-align: center;
+      margin: 40px 0;
+    }
+
+    #currentWord {
+      font-size: 2em;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+
+    #inputArea {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #userInput {
+      padding: 8px;
+      font-size: 1em;
+      width: 50%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #submitBtn {
+      padding: 8px 16px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      background-color: #4caf50;
+      color: #fff;
+      cursor: pointer;
+      height: 40px;
+    }
+    #submitBtn:disabled {
+      background-color: #bbb;
+      cursor: not-allowed;
+    }
+    #submitBtn:hover:enabled {
+      background-color: #45a049;
+    }
+
+    #resultArea {
+      display: none;
+      text-align: center;
+      margin-top: 30px;
+    }
+    #resultArea h2 {
+      margin-bottom: 10px;
+    }
+    #resultArea p {
+      margin: 5px 0;
+    }
+
+    /* 通知ポップアップ（右上） */
+    #notificationPopup {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: none;
+      background-color: #fffa9e;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      padding: 10px 15px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      max-width: 300px;
+    }
+    #notificationPopup:hover {
+      background-color: #fff18a;
+    }
+
+    /* 結果画面のボタン */
+    .actionBtn {
+      margin-top: 15px;
+      padding: 8px 16px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      height: 40px;
+    }
+    #tryAgainBtn {
+      background-color: #9c27b0;
+      color: #fff;
+      margin-right: 10px;
+    }
+    #tryAgainBtn:hover {
+      background-color: #7b1fa2;
+    }
+    #downloadAllBtn {
+      background-color: #2196f3;
+      color: #fff;
+    }
+    #downloadAllBtn:hover {
+      background-color: #1976d2;
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <h1>typing</h1>
 
-    <!-- 左上の設定アイコンや時間設定UIは従来通り -->
+    <!-- 設定アイコン（マテリアルアイコン） -->
+    <span class="material-icons" id="settingsIcon">settings</span>
 
+    <!-- 時間設定ウィンドウ -->
+    <div id="timeSettings">
+      <label for="timeInput">Time (seconds):</label>
+      <input type="number" id="timeInput" min="1" step="1" value="360" />
+      <button id="setTimeBtn">Set</button>
+    </div>
+
+    <!-- タイマー表示 -->
+    <div class="info">
+      <p id="timer">Press SPACE key to start.</p>
+    </div>
+
+    <!-- 単語表示・入力エリア -->
     <div id="wordArea">
       <div id="currentWord"></div>
       <div id="inputArea">
-        <input type="text" id="userInput" disabled />
+        <input type="text" id="userInput" placeholder="Type here" disabled />
         <button id="submitBtn" disabled>Send</button>
       </div>
     </div>
@@ -29,7 +206,6 @@
     <div id="resultArea">
       <h2>Result</h2>
       <p id="sessionCountText">This is Session #: 0</p>
-      <!-- 以下、セッションの各項目 -->
       <p id="startTimeText">Session start: -</p>
       <p id="endTimeText">Session end: -</p>
       <p id="notifTimesText">Notifications: (none)</p>
@@ -37,169 +213,327 @@
       <p id="miss">Wrong: 0</p>
       <p id="typedCount">Typed words: 0</p>
       <p id="typedChars">Typed chars: 0</p>
-
-      <!-- 「Try again」ボタン：リロードしない -->
-      <button id="tryAgainBtn">Try again</button>
-
-      <!-- 全セッションまとめてDL -->
-      <button id="downloadAllBtn">Download All Results</button>
+      <button id="tryAgainBtn" class="actionBtn">Try again</button>
+      <button id="downloadAllBtn" class="actionBtn">Download All Results</button>
     </div>
   </div>
 
-  <!-- 通知ポップアップ -->
+  <!-- 通知ポップアップ（5秒後に自動で消える） -->
   <div id="notificationPopup">
     <span id="notifText">Notification</span>
   </div>
 
-  <!-- Socket.IO -->
+  <!-- Socket.IOを読み込み -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
-  /****************************************
-   * 1. 通知ポップアップを5秒で自動クローズ
-   ****************************************/
-  const notificationPopup = document.getElementById('notificationPopup');
-  const notifTextElem     = document.getElementById('notifText');
-  let popupTimer = null;
+    /*****************************************
+     * （1）通知ポップアップを5秒で自動クローズ
+     *****************************************/
+    const notificationPopup = document.getElementById('notificationPopup');
+    const notifTextElem     = document.getElementById('notifText');
+    let popupTimer          = null;
 
-  // 通知が来たら表示し、5秒後に自動で閉じる
-  const socket = io();
-  socket.on('notify', (data) => {
-    // 表示内容
-    notifTextElem.textContent = data && data.message
-      ? data.message
-      : 'Please tell me your emotion.';
-    notificationPopup.style.display = 'block';
+    const socket = io();
+    socket.on('notify', (data) => {
+      // 通知メッセージ設定
+      notifTextElem.textContent = data && data.message
+        ? data.message
+        : 'Please tell me your emotion.';
+      notificationPopup.style.display = 'block';
 
-    // 音再生など省略（pick.mp3 のまま）
+      // 既存のタイマーがあればクリア
+      if (popupTimer) clearTimeout(popupTimer);
 
-    // もし既にタイマーが動いていればクリア
-    if (popupTimer) clearTimeout(popupTimer);
-
-    // 5秒後に自動で消す
-    popupTimer = setTimeout(() => {
-      notificationPopup.style.display = 'none';
-    }, 5000);  // 5秒 = 5000ms
-  });
-
-  /****************************************
-   * 2. セッションの履歴を配列に保持
-   ****************************************/
-  let sessionCount = 0;
-  let allSessions  = [];  // 過去セッションの履歴を格納
-
-  // 各セッション結果の変数（例）
-  let sessionStartTime = null;
-  let sessionEndTime   = null;
-  let notifications    = [];
-  let correctCount = 0, missCount = 0;
-  let totalTyped = 0, totalChars = 0;
-
-  // 終了時に結果をallSessionsにpush
-  function endSession() {
-    sessionCount++;
-
-    // ...途中省略: sessionEndTime = new Date() 等
-    // collect result in an object
-    const resultObj = {
-      sessionNum: sessionCount,
-      startTime: sessionStartTime,
-      endTime: sessionEndTime,
-      notifications: [...notifications],
-      correct: correctCount,
-      wrong: missCount,
-      typedWords: totalTyped,
-      typedChars: totalChars
-    };
-    // push to array
-    allSessions.push(resultObj);
-
-    // UI更新 "This is Session #: X"
-    document.getElementById('sessionCountText').textContent
-      = `This is Session #: ${sessionCount}`;
-    
-    // startTime, endTime, notifications, score, miss...など表示
-    // ...
-    // resultAreaを表示
-    document.getElementById('resultArea').style.display = 'block';
-  }
-
-  /****************************************
-   * 3. Try again ボタンで新セッション開始
-   ****************************************/
-  const tryAgainBtn = document.getElementById('tryAgainBtn');
-  tryAgainBtn.addEventListener('click', () => {
-    // resultAreaを一旦隠す or 項目をリセット
-    document.getElementById('resultArea').style.display = 'none';
-
-    // ただし過去セッションは allSessions に残しておく
-    // 次のセッションで使う変数を初期化し、スペースキーで開始...など
-    correctCount = 0;
-    missCount   = 0;
-    totalTyped  = 0;
-    totalChars  = 0;
-    notifications = [];
-    // 連続セッション向け: set remainingTime = sessionTime; isStarted = false; etc.
-    // 画面上の "Press SPACE key to start." はお好みで再表示
-
-    // ここで startTask() を呼ぶか、または
-    // ユーザーが再度スペースキーを押す流れにする
-  });
-
-  /****************************************
-   * 4. 複数セッションまとめてDL
-   ****************************************/
-  const downloadAllBtn = document.getElementById('downloadAllBtn');
-  downloadAllBtn.addEventListener('click', () => {
-    // CSVヘッダ行
-    const header = [
-      'SessionNum', 'StartTime', 'EndTime', 'Notifications',
-      'Correct', 'Wrong', 'TypedWords', 'TypedChars'
-    ];
-    const rows = [header];
-
-    // allSessionsに保存された全セッションを1行ずつに
-    allSessions.forEach(session => {
-      const notifyStr = session.notifications.length > 0
-        ? session.notifications.join(' / ')
-        : '';
-      rows.push([
-        session.sessionNum,
-        session.startTime ? session.startTime.toLocaleString() : '',
-        session.endTime   ? session.endTime.toLocaleString()   : '',
-        notifyStr,
-        session.correct,
-        session.wrong,
-        session.typedWords,
-        session.typedChars
-      ]);
+      // 5秒後に自動で通知が消える
+      popupTimer = setTimeout(() => {
+        notificationPopup.style.display = 'none';
+      }, 5000);
     });
 
-    // CSV文字列生成
-    const csvContent = "data:text/csv;charset=utf-8,"
-      + rows.map(r => r.join(",")).join("\n");
+    // 通知をクリックでも消せる
+    notificationPopup.addEventListener('click', () => {
+      notificationPopup.style.display = 'none';
+      if (popupTimer) clearTimeout(popupTimer);
+    });
 
-    // ダウンロード用リンク生成
-    const encodedUri = encodeURI(csvContent);
-    const link       = document.createElement("a");
+    /************************************************
+     * （2）外部ファイルから単語リストを読み込む
+     ************************************************/
+    let wordList = [];  // 外部ファイルから取得した単語リストを格納
 
-    // ファイル名: allSessions_YYYYMMDD_HHMMSS.csv
-    const now = new Date();
-    const y = now.getFullYear(); 
-    const m = String(now.getMonth()+1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    const hh = String(now.getHours()).padStart(2, "0");
-    const mm = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
-    link.setAttribute("download", `allSessions_${y}${m}${d}_${hh}${mm}${ss}.csv`);
-    link.setAttribute("href", encodedUri);
+    // words.txt という外部ファイルから読み込み
+    // 読み込み完了後 callback() を呼ぶ
+    function loadExternalWords(callback) {
+      fetch('/words.txt')
+        .then(response => response.text())
+        .then(text => {
+          // 改行区切りで分割、空行は除外
+          wordList = text.split(/\r?\n/).filter(e => e.trim().length > 0);
+          callback();
+        })
+        .catch(err => {
+          console.error('単語リストの読み込み失敗:', err);
+          alert('Failed to load word list. Please check /words.txt');
+        });
+    }
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  });
+    /*********************************************************
+     * （3）複数セッションの履歴を保持してCSVダウンロード
+     *********************************************************/
+    let sessionCount   = 0;
+    let allSessions    = [];
 
-  // ...以下、残りのロジックは従来通り
-  // startTask() や checkAnswer() など
+    let sessionStartTime = null;
+    let sessionEndTime   = null;
+    let notifications    = []; // セッション中の通知時刻
+    let correctCount = 0;
+    let missCount    = 0;
+    let totalTyped   = 0;
+    let totalChars   = 0;
+
+    let sessionTime   = 360;   // デフォルト360秒
+    let remainingTime = sessionTime;
+    let timerId       = null;
+    let isStarted     = false;
+
+    const timerElem          = document.getElementById('timer');
+    const userInputElem      = document.getElementById('userInput');
+    const submitBtn          = document.getElementById('submitBtn');
+    const resultArea         = document.getElementById('resultArea');
+    const sessionCountText   = document.getElementById('sessionCountText');
+    const startTimeText      = document.getElementById('startTimeText');
+    const endTimeText        = document.getElementById('endTimeText');
+    const notifTimesText     = document.getElementById('notifTimesText');
+    const scoreElem          = document.getElementById('score');
+    const missElem           = document.getElementById('miss');
+    const typedElem          = document.getElementById('typedCount');
+    const typedCharsElem     = document.getElementById('typedChars');
+
+    const tryAgainBtn        = document.getElementById('tryAgainBtn');
+    const downloadAllBtn     = document.getElementById('downloadAllBtn');
+
+    // 時間設定関連
+    const settingsIcon       = document.getElementById('settingsIcon');
+    const timeSettings       = document.getElementById('timeSettings');
+    const timeInputElem      = document.getElementById('timeInput');
+    const setTimeBtn         = document.getElementById('setTimeBtn');
+
+    // 歯車アイコンで時間設定パネル表示/非表示
+    settingsIcon.addEventListener('click', () => {
+      if (timeSettings.style.display === 'none' || timeSettings.style.display === '') {
+        timeSettings.style.display = 'block';
+      } else {
+        timeSettings.style.display = 'none';
+      }
+    });
+
+    // 時間設定ボタン
+    setTimeBtn.addEventListener('click', setTime);
+    // Enterキーでもセット
+    timeInputElem.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        setTime();
+      }
+    });
+
+    function setTime() {
+      const userSetTime = parseInt(timeInputElem.value, 10);
+      if (!isNaN(userSetTime) && userSetTime > 0) {
+        sessionTime   = userSetTime;
+        remainingTime = sessionTime;
+      }
+      timeSettings.style.display = 'none';
+    }
+
+    // スペースキーでスタート
+    window.addEventListener('keydown', (e) => {
+      if (!isStarted && e.code === 'Space') {
+        isStarted = true;
+        // 外部ファイルから単語を読み込んでから startTask() を実行
+        loadExternalWords(() => {
+          startTask();
+        });
+      }
+    });
+
+    // セッション開始
+    function startTask() {
+      // セッションカウント +1
+      sessionCount++;
+
+      // セッション用の各変数リセット
+      sessionStartTime = new Date();
+      sessionEndTime   = null;
+      notifications    = [];
+      correctCount     = 0;
+      missCount        = 0;
+      totalTyped       = 0;
+      totalChars       = 0;
+
+      // 入力欄初期化
+      userInputElem.value = '';
+      userInputElem.disabled = false;
+      userInputElem.focus();
+
+      // 残り時間を設定し、カウントダウン開始
+      remainingTime = sessionTime;
+      timerId = setInterval(() => {
+        remainingTime--;
+        timerElem.textContent = `${remainingTime}s`;
+        if (remainingTime <= 0) {
+          endSession();
+        }
+      }, 1000);
+
+      // 最初の単語を表示
+      showCurrentWord();
+    }
+
+    // ランダムシャッフルは不要なら削除可
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    // 現在の単語を表示
+    function showCurrentWord() {
+      // correctCount + missCount の合計を添字に
+      const currentIndex = (correctCount + missCount) % wordList.length;
+      const word = wordList[currentIndex];
+
+      document.getElementById('currentWord').textContent = word;
+      userInputElem.value = '';
+      submitBtn.disabled  = false;
+      userInputElem.focus();
+    }
+
+    // 回答チェック
+    function checkAnswer() {
+      const currentIndex = (correctCount + missCount) % wordList.length;
+      const correctWord  = wordList[currentIndex];
+      const userAnswer   = userInputElem.value.trim();
+
+      // 入力単語数、入力文字数を更新
+      totalTyped++;
+      totalChars += userAnswer.length;
+
+      if (userAnswer === correctWord) {
+        correctCount++;
+      } else {
+        missCount++;
+      }
+      showCurrentWord();
+    }
+
+    // セッション終了
+    function endSession() {
+      clearInterval(timerId);
+      timerId   = null;
+      isStarted = false;
+      sessionEndTime = new Date();
+
+      // 結果をオブジェクトにまとめ、allSessionsに追加
+      const sessionResult = {
+        sessionNum: sessionCount,
+        startTime: sessionStartTime,
+        endTime: sessionEndTime,
+        notifications: [...notifications],
+        correct: correctCount,
+        wrong: missCount,
+        typedWords: totalTyped,
+        typedChars: totalChars
+      };
+      allSessions.push(sessionResult);
+
+      // 結果表示
+      sessionCountText.textContent
+        = `This is Session #: ${sessionCount}`;
+      startTimeText.textContent
+        = `Session start: ${sessionStartTime.toLocaleString()}`;
+      endTimeText.textContent
+        = `Session end: ${sessionEndTime.toLocaleString()}`;
+      notifTimesText.textContent
+        = notifications.length > 0
+          ? "Notifications: " + notifications.join(" | ")
+          : "Notifications: (none)";
+      scoreElem.textContent
+        = `Correct: ${correctCount}`;
+      missElem.textContent
+        = `Wrong: ${missCount}`;
+      typedElem.textContent
+        = `Typed words: ${totalTyped}`;
+      typedCharsElem.textContent
+        = `Typed chars: ${totalChars}`;
+
+      resultArea.style.display = 'block';
+    }
+
+    // ボタン設定
+    submitBtn.addEventListener('click', checkAnswer);
+    userInputElem.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !submitBtn.disabled) {
+        e.preventDefault();
+        checkAnswer();
+      }
+    });
+
+    // Try again: 結果画面を消して、またスペースキー待ち
+    tryAgainBtn.addEventListener('click', () => {
+      resultArea.style.display = 'none';
+      timerElem.textContent     = 'Press SPACE key to start.';
+    });
+
+    // 通知が来た時刻を保持したい場合はサーバーと連携してpush
+    // 例: socket.on('notifyTime', ts => notifications.push(ts));
+
+    // 複数セッションをまとめてダウンロード
+    downloadAllBtn.addEventListener('click', () => {
+      const header = [
+        'SessionNum', 'StartTime', 'EndTime', 'Notifications',
+        'Correct', 'Wrong', 'TypedWords', 'TypedChars'
+      ];
+      const rows = [header];
+
+      allSessions.forEach(ses => {
+        const notifStr = (ses.notifications.length > 0)
+          ? ses.notifications.map(t => t.toLocaleString ? t.toLocaleString() : t).join(" / ")
+          : '';
+        rows.push([
+          ses.sessionNum,
+          ses.startTime ? ses.startTime.toLocaleString() : '',
+          ses.endTime   ? ses.endTime.toLocaleString()   : '',
+          notifStr,
+          ses.correct,
+          ses.wrong,
+          ses.typedWords,
+          ses.typedChars
+        ]);
+      });
+
+      const csvContent = "data:text/csv;charset=utf-8,"
+        + rows.map(r => r.join(",")).join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+
+      // ファイル名に日付時刻を付与
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth()+1).padStart(2,"0");
+      const d = String(now.getDate()).padStart(2,"0");
+      const hh= String(now.getHours()).padStart(2,"0");
+      const mm= String(now.getMinutes()).padStart(2,"0");
+      const ss= String(now.getSeconds()).padStart(2,"0");
+      link.setAttribute("download", `allSessions_${y}${m}${d}_${hh}${mm}${ss}.csv`);
+      link.setAttribute("href", encodedUri);
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
   </script>
 </body>
 </html>
